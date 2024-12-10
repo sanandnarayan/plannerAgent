@@ -1,14 +1,37 @@
 // planner.js
 
 const { callOpenAIChat } = require("./openai");
+const { availableFunctions } = require("./executor");
 
-// Define a function tool schema for planning
-// We'll just let the model output JSON and we'll parse it.
+// Helper function to generate tools description for system message
+function generateToolsDescription() {
+  let toolsDesc =
+    "When creating the plan, keep in mind that the execution agent has access to the following tools:\n\n";
+
+  // Use the actual function definitions from executor.js
+  Object.entries(availableFunctions).forEach(([key, tool], index) => {
+    toolsDesc += `${index + 1}. ${tool.name}: ${tool.description}\n`;
+    if (tool.parameters?.properties) {
+      toolsDesc += `   Parameters:\n`;
+      Object.entries(tool.parameters.properties).forEach(
+        ([paramName, paramDetails]) => {
+          toolsDesc += `   - ${paramName}: ${paramDetails.description}\n`;
+        }
+      );
+    }
+  });
+
+  toolsDesc +=
+    "\nMake sure your plan effectively utilizes these available tools when needed. Break down steps in a way that can leverage these capabilities.";
+  return toolsDesc;
+}
 
 async function planStep(objective) {
   const systemMessage = {
     role: "system",
-    content: `You are a planner. Given an objective, return a step by step plan as a JSON object { "steps": [ "step 1", "step 2" ] } with no extra commentary.`,
+    content: `You are a planner. Given an objective, return a step by step plan as a JSON object { "steps": [ "step 1", "step 2" ] } with no extra commentary.
+
+${generateToolsDescription()}`,
   };
   const userMessage = { role: "user", content: objective };
 
@@ -30,8 +53,10 @@ async function replanStep(state) {
   const systemMessage = {
     role: "system",
     content: `You are a planner. Given the original objective, the original plan, and the steps done, update the plan. 
-If no more steps are needed, return {"response":"final answer"}.
-Otherwise return {"steps":["new step1","new step2"]}.`,
+If no more steps are needed, return {"response":"in the value write the final answer to the users initial question"}.
+Otherwise return {"steps":["new step1","new step2"]}.
+
+${generateToolsDescription()}`,
   };
 
   const userMessage = {

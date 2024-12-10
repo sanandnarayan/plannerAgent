@@ -2,9 +2,9 @@
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
-async function callOpenAIChat(messages, functions) {
-  // messages: [{role: 'system'|'user'|'assistant', content: '...'}]
-  // functions: optional array of { name, description, parameters }
+async function callOpenAIChat(messages, options = {}) {
+  // messages: [{role: 'system'|'user'|'assistant'|'function', content: '...'}]
+  // options: { functions, function_call } for function calling
 
   const payload = {
     model: "gpt-4-0613",
@@ -12,48 +12,38 @@ async function callOpenAIChat(messages, functions) {
     temperature: 0,
   };
 
-  if (functions && functions.length > 0) {
-    payload.functions = functions;
+  // Add function calling options if provided
+  if (options.functions) {
+    payload.functions = options.functions;
+  }
+  if (options.function_call) {
+    payload.function_call = options.function_call;
   }
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  console.log(payload);
+  try {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (!resp.ok) {
-    throw new Error(`OpenAI API error: ${resp.status} ${await resp.text()}`);
-  }
-
-  const data = await resp.json();
-  return data;
-}
-
-// A helper to invoke a function call if OpenAI decides to call a function.
-async function handleFunctionCalls(response, toolFunctions) {
-  // If function call present
-  const choice = response.choices[0];
-  if (choice.finish_reason === "function_call") {
-    const fnCall = choice.message.function_call;
-    const fnName = fnCall.name;
-    const args = JSON.parse(fnCall.arguments || "{}");
-
-    const tool = toolFunctions.find((t) => t.name === fnName);
-    if (!tool) {
-      throw new Error(`No tool found for function ${fnName}`);
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      throw new Error(`OpenAI API error: ${resp.status} ${errorText}`);
     }
 
-    const result = await tool.execute(args);
-    // Return result as assistant's response
-    return { role: "assistant", content: result };
-  } else {
-    // Normal response
-    return choice.message;
+    const data = await resp.json();
+    console.log("open ai response");
+    console.log(data);
+    return data;
+  } catch (error) {
+    console.error("Error calling OpenAI:", error);
+    throw error;
   }
 }
 
-module.exports = { callOpenAIChat, handleFunctionCalls };
+module.exports = { callOpenAIChat };

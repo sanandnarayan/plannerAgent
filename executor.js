@@ -3,45 +3,73 @@
 const { callOpenAIChat } = require("./openai");
 const { tavilySearchResults } = require("./tools");
 
+// Define the available functions for the model
+const availableFunctions = {
+  search: {
+    name: "search",
+    description: "Search the web for information about a given query",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query to look up",
+        },
+      },
+      required: ["query"],
+    },
+  },
+};
+
 async function executeStep(step) {
-  // We'll prompt the model with the step, and if it decides to use the tool, we do so.
   const systemMessage = {
     role: "system",
-    content:
-      "You are an execution agent that can use tools if needed. If you need to search, think 'I should use the search tool' and then do so.",
+    content: `You are an execution agent that can use tools to help complete tasks. You have access to the following tools:
+
+1. Web Search: You can search the web for current information using the 'search' function. This returns relevant search results including titles and content.
+
+When you need to search for information, use the search function rather than making assumptions.`,
   };
   const userMessage = { role: "user", content: step };
 
-  // First call LLM to see if we need a tool:
-  const initialResp = await callOpenAIChat([systemMessage, userMessage]);
+  // Call LLM with function calling enabled
+  const initialResp = await callOpenAIChat([systemMessage, userMessage], {
+    functions: [availableFunctions.search],
+    function_call: "auto",
+  });
 
-  let content = initialResp.choices[0].message.content || "";
-  // Heuristics: if model says something like "I should search..."
-  // In real scenario, you'd do function calling. Here we just do a naive approach:
-  if (content.toLowerCase().includes("search")) {
-    // Extract query from content heuristically
-    // For simplicity, let's assume the model wrote: "I should search for 'X'"
-    const match = content.match(/search for ['"](.*?)['"]/i);
-    let query = match ? match[1] : step;
-    const results = await tavilySearchResults(query);
+  let content = initialResp.choices[0].message.content;
+  const functionCall = initialResp.choices[0].message.function_call;
 
-    // Give results back to the model and ask for final answer:
+  // Handle function calling
+  if (functionCall && functionCall.name === "search") {
+    const searchQuery = JSON.parse(functionCall.arguments).query;
+    const results = await tavilySearchResults(searchQuery);
+
+    // Give results back to the model for final response
     const toolMessage = {
-      role: "system",
-      content: `Search results:\n${results
-        .map((r) => `${r.title}: ${r.content}`)
-        .join("\n")}`,
+      role: "assistant",
+      content: null,
+      function_call: functionCall,
+    };
+
+    const toolResultMessage = {
+      role: "function",
+      name: "search",
+      content: JSON.stringify(results),
     };
 
     const finalResp = await callOpenAIChat([
       systemMessage,
       userMessage,
       toolMessage,
+      toolResultMessage,
     ]);
+
     content = finalResp.choices[0].message.content || "";
   }
 
   return content.trim();
 }
 
-module.exports = { executeStep };
+module.exports = { executeStep, availableFunctions };
