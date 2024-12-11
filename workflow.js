@@ -9,6 +9,9 @@ async function runWorkflow(state) {
   state.currentStep = 0;
 
   while (!state.response) {
+    console.log("==============");
+    console.log(state);
+
     // Check if we've completed all steps
     if (state.currentStep >= state.plan.length) {
       // If no steps left, check if we're done

@@ -20,7 +20,6 @@ async function callOpenAIChat(messages, options = {}) {
     payload.function_call = options.function_call;
   }
 
-  console.log(payload);
   try {
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -37,8 +36,6 @@ async function callOpenAIChat(messages, options = {}) {
     }
 
     const data = await resp.json();
-    console.log("open ai response");
-    console.log(data);
     return data;
   } catch (error) {
     console.error("Error calling OpenAI:", error);
