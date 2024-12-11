@@ -1,14 +1,24 @@
 // run.js
 
 const { runAgent } = require("./app");
+const readline = require("readline");
 
-// Example objective:
-const objective = "what is the hometown of the 2024 Australian open winner?";
+// Create readline interface for user input
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
 
-runAgent(objective)
-  .then((answer) => {
-    console.log("Final Answer:", answer);
-  })
-  .catch((err) => {
-    console.error("Error:", err);
-  });
+// Prompt user for objective
+rl.question("Please enter your objective: ", (objective) => {
+  // Run the agent with user's objective
+  runAgent(objective)
+    .then((answer) => {
+      console.log("Final Answer:", answer);
+      rl.close(); // Close the readline interface
+    })
+    .catch((err) => {
+      console.error("Error:", err);
+      rl.close(); // Close the readline interface
+    });
+});
