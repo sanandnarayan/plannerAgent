@@ -52,20 +52,41 @@ ${generateToolsDescription()}`,
 async function replanStep(state) {
   const systemMessage = {
     role: "system",
-    content: `You are a planner. Given the original objective, the original plan, and the steps done, update the plan. 
-If no more steps are needed, return {"response":"in the value write the final answer to the users initial question"}.
-Otherwise return {"steps":["new step1","new step2"]}.
+    content: `You are a planner. Given the original objective, the current plan, and the last executed step, determine if the plan needs to be modified.
+If the objective is complete, return an object with key as 'response' and value is the answer to users first question like this {"response":""}.
+Otherwise return {"steps":["put in all the steps that are needed to achieve the objective after you have made the necessary changes to the plan"]}.
+
+Consider:
+1. Was the last step successful? If not, adjust the plan accordingly
+2. Did the last step reveal new information that requires changing the remaining steps?
+3. Are the remaining steps still appropriate to achieve the objective?
 
 ${generateToolsDescription()}`,
   };
 
+  // Get the last executed step and remaining steps
+  const lastStep = state.pastSteps[state.pastSteps.length - 1];
+  // Since currentStep points to the next step to be executed,
+  // we want all steps starting from currentStep
+  const remainingSteps = state.plan.slice(state.currentStep);
+
   const userMessage = {
     role: "user",
-    content: `Objective: ${state.input}\n\nOriginal Plan:\n${state.plan.join(
-      "\n"
-    )}\n\nExecuted Steps:\n${state.pastSteps
-      .map((p) => p[0] + ": " + p[1])
-      .join("\n")}`,
+    content: `Objective: ${state.input}
+
+Last Executed Step: ${lastStep ? `${lastStep[0]}: ${lastStep[1]}` : "None"}
+
+Remaining Steps:
+${
+  remainingSteps.length > 0 ? remainingSteps.join("\n") : "(No remaining steps)"
+}
+
+Current Progress:
+${
+  state.pastSteps.length > 0
+    ? state.pastSteps.map((p) => p[0] + ": " + p[1]).join("\n")
+    : "(No steps executed yet)"
+}`,
   };
 
   const resp = await callOpenAIChat([systemMessage, userMessage]);
@@ -75,7 +96,7 @@ ${generateToolsDescription()}`,
   try {
     output = JSON.parse(msg);
   } catch {
-    output = { steps: [] };
+    output = { steps: remainingSteps }; // Fallback to keeping remaining steps unchanged
   }
 
   if (output.response) {
@@ -85,7 +106,7 @@ ${generateToolsDescription()}`,
   if (output.steps) {
     return { plan: output.steps };
   }
-  return { plan: [] };
+  return { plan: remainingSteps }; // Fallback to keeping remaining steps unchanged
 }
 
 module.exports = { planStep, replanStep };

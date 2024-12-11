@@ -6,10 +6,12 @@ const { executeStep } = require("./executor");
 async function runWorkflow(state) {
   // Plan
   state.plan = await planStep(state.input);
+  state.currentStep = 0;
 
   while (!state.response) {
-    if (state.plan.length === 0) {
-      // If no steps, replan
+    // Check if we've completed all steps
+    if (state.currentStep >= state.plan.length) {
+      // If no steps left, check if we're done
       const replanOut = await replanStep(state);
       if (replanOut.response) {
         state.response = replanOut.response;
@@ -18,22 +20,28 @@ async function runWorkflow(state) {
       if (replanOut.plan) {
         state.plan = replanOut.plan;
       }
+      continue;
     }
 
-    if (state.plan.length > 0) {
-      const currentStep = state.plan[0];
-      const result = await executeStep(currentStep);
-      state.pastSteps.push([currentStep, result]);
-      state.plan.shift(); // remove done step
+    // Execute current step
+    const currentStep = state.plan[state.currentStep];
+    const result = await executeStep(currentStep);
+    state.pastSteps.push([currentStep, result]);
+    state.currentStep++;
+
+    // Replan after each step
+    const replanOut = await replanStep(state);
+    if (replanOut.response) {
+      state.response = replanOut.response;
+      break;
     }
 
-    if (state.plan.length === 0 && !state.response) {
-      const replanOut = await replanStep(state);
-      if (replanOut.response) {
-        state.response = replanOut.response;
-      } else if (replanOut.plan) {
-        state.plan = replanOut.plan;
-      }
+    // Update the plan with the new steps
+    if (replanOut.plan) {
+      state.plan = [
+        ...state.plan.slice(0, state.currentStep),
+        ...replanOut.plan,
+      ];
     }
   }
 
