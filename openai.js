@@ -2,6 +2,8 @@
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
+let trace;
+
 async function callOpenAIChat(messages, options = {}) {
   // messages: [{role: 'system'|'user'|'assistant'|'function', content: '...'}]
   // options: { functions, function_call } for function calling
@@ -18,6 +20,18 @@ async function callOpenAIChat(messages, options = {}) {
   }
   if (options.function_call) {
     payload.function_call = options.function_call;
+  }
+  if (options.trace) {
+    trace = options.trace;
+  }
+
+  let generation;
+  if (trace) {
+    generation = trace.generation({
+      name: "callOpenAIChat",
+      model: "gpt-4-0613",
+      input: payload,
+    });
   }
 
   try {
@@ -36,6 +50,12 @@ async function callOpenAIChat(messages, options = {}) {
     }
 
     const data = await resp.json();
+
+    if (trace) {
+      generation.end({
+        output: data,
+      });
+    }
     return data;
   } catch (error) {
     console.error("Error calling OpenAI:", error);

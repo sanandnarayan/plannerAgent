@@ -21,7 +21,7 @@ const availableFunctions = {
   },
 };
 
-async function executeStep(step) {
+async function executeStep(step, context) {
   const systemMessage = {
     role: "system",
     content: `You are an execution agent that can use tools to help complete tasks. You have access to the following tools:
@@ -59,12 +59,10 @@ When you need to search for information, use the search function rather than mak
       content: JSON.stringify(results),
     };
 
-    const finalResp = await callOpenAIChat([
-      systemMessage,
-      userMessage,
-      toolMessage,
-      toolResultMessage,
-    ]);
+    const finalResp = await callOpenAIChat(
+      [systemMessage, userMessage, toolMessage, toolResultMessage],
+      context
+    );
 
     content = finalResp.choices[0].message.content || "";
   }

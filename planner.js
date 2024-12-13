@@ -26,7 +26,7 @@ function generateToolsDescription() {
   return toolsDesc;
 }
 
-async function planStep(objective) {
+async function planStep(objective, context) {
   const systemMessage = {
     role: "system",
     content: `You are a planner. Given an objective, return a step by step plan as a JSON object { "steps": [ "step 1", "step 2" ] } with no extra commentary.
@@ -35,7 +35,7 @@ ${generateToolsDescription()}`,
   };
   const userMessage = { role: "user", content: objective };
 
-  const resp = await callOpenAIChat([systemMessage, userMessage]);
+  const resp = await callOpenAIChat([systemMessage, userMessage], context);
   const msg = resp.choices[0].message.content;
 
   // Attempt to parse JSON
@@ -49,7 +49,7 @@ ${generateToolsDescription()}`,
   return plan.steps || [];
 }
 
-async function replanStep(state) {
+async function replanStep(state, context) {
   const systemMessage = {
     role: "system",
     content: `You are a planner. Given the original objective, the current plan, and the last executed step, determine if the plan needs to be modified.
@@ -60,6 +60,8 @@ Consider:
 1. Was the last step successful? If not, adjust the plan accordingly
 2. Did the last step reveal new information that requires changing the remaining steps?
 3. Are the remaining steps still appropriate to achieve the objective?
+
+Everything is automatically recorded. no need to add steps to record
 
 ${generateToolsDescription()}`,
   };
@@ -89,7 +91,7 @@ ${
 }`,
   };
 
-  const resp = await callOpenAIChat([systemMessage, userMessage]);
+  const resp = await callOpenAIChat([systemMessage, userMessage], context);
   const msg = resp.choices[0].message.content;
 
   let output;
