@@ -2,6 +2,7 @@
 
 const { callOpenAIChat } = require("./openai");
 const { availableFunctions } = require("./executor");
+const logger = require("./logger");
 
 // Helper function to generate tools description for system message
 function generateToolsDescription() {
@@ -46,6 +47,14 @@ ${generateToolsDescription()}`,
     // fallback if not well-formed
     plan = { steps: [] };
   }
+
+  if (plan.steps && plan.steps.length > 0) {
+    logger.info("\n📋 Initial Plan:");
+    plan.steps.forEach((step, index) => {
+      logger.info(`${index + 1}. ${step}`);
+    });
+  }
+
   return plan.steps || [];
 }
 
@@ -106,6 +115,10 @@ ${
     return { response: output.response };
   }
   if (output.steps) {
+    logger.info("\n📝 Updated Plan:");
+    output.steps.forEach((step, index) => {
+      logger.info(`${index + 1}. ${step}`);
+    });
     return { plan: output.steps };
   }
   return { plan: remainingSteps }; // Fallback to keeping remaining steps unchanged

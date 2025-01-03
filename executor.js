@@ -67,6 +67,7 @@ When you need to search for information, use the search function rather than mak
     content = finalResp.choices[0].message.content || "";
   }
 
+  console.log("🤖 Step result:", content.trim());
   return content.trim();
 }
 
